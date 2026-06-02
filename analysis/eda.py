@@ -20,7 +20,8 @@ Constructs (same battery repeats inside every condition block, by slot position)
     perc_value      2 Likert items   1..7
     overall_value   1 MC item        1..7   (text endpoints: very low / very high)
     satisfaction    5 Likert items   1..7
-    loyalty_wom     8 Likert items   1..7
+    loyalty_wom     7 Likert items   1..7   (content-aligned; block-A duplicate removed,
+                                             online-WOM item dropped - see note in code)
     repurchase      1 MC item        1..7   (text endpoints: very low / very high)
 """
 import warnings
@@ -98,12 +99,35 @@ df["pval_2"]        = coalesce(["Q27_2", "Q35_2", "Q43_2", "Q51_2"])
 df["overall_value"] = coalesce(["Q28", "Q36", "Q44", "Q52"])
 for i in range(1, 6):
     df[f"sat_{i}"] = coalesce([f"Q29_{i}", f"Q37_{i}", f"Q45_{i}", f"Q53_{i}"])
-for i in range(1, 9):
-    df[f"loy_{i}"] = coalesce([f"Q30_{i}", f"Q38_{i}", f"Q46_{i}", f"Q54_{i}"])
+
+# --- Loyalty/WOM: content-aligned 7-item scale (see note below) -----------------
+# The raw 8 slots are NOT comparable across blocks:
+#   * Block A (Q30) repeats "encourage friends/relatives to purchase" in slots 6 AND 8
+#     (a duplicate; the two ratings correlate r=.86) and OMITS the online-WOM item.
+#   * Blocks B/C/D (Q38/Q46/Q54) use slot 7 = "express positive opinions online" and
+#     slot 8 = "speak positively in personal conversations".
+# Coalescing by raw slot therefore mixed different items in slots 7 & 8. We rebuild
+# the scale by CONTENT: drop the block-A duplicate (Q30_8) and the online-WOM item
+# (present only in B/C/D, so unusable in a cross-condition scale), and map the
+# "personal conversations" item from its true per-block slot.
+LOY_MAP = {
+    "loy_1": ["Q30_1", "Q38_1", "Q46_1", "Q54_1"],  # continue using for years
+    "loy_2": ["Q30_2", "Q38_2", "Q46_2", "Q54_2"],  # first choice
+    "loy_3": ["Q30_3", "Q38_3", "Q46_3", "Q54_3"],  # would choose if free
+    "loy_4": ["Q30_4", "Q38_4", "Q46_4", "Q54_4"],  # recommend to advice-seekers
+    "loy_5": ["Q30_5", "Q38_5", "Q46_5", "Q54_5"],  # recommend to friends/relatives
+    "loy_6": ["Q30_6", "Q38_6", "Q46_6", "Q54_6"],  # encourage to purchase
+    "loy_7": ["Q30_7", "Q38_8", "Q46_8", "Q54_8"],  # speak positively in conversations
+}
+for name, cols in LOY_MAP.items():
+    df[name] = coalesce(cols)
+# Online-WOM item kept separately (B/C/D only; NaN for condition A) for optional use.
+df["loy_online_BCD"] = coalesce(["Q38_7", "Q46_7", "Q54_7"])
+
 df["repurchase"]    = coalesce(["Q31", "Q39", "Q47", "Q55"])
 
 SAT_ITEMS = [f"sat_{i}" for i in range(1, 6)]
-LOY_ITEMS = [f"loy_{i}" for i in range(1, 9)]
+LOY_ITEMS = list(LOY_MAP.keys())             # 7 content-aligned items (duplicate removed)
 PVAL_ITEMS = ["pval_1", "pval_2"]
 
 df["perc_value"]   = df[PVAL_ITEMS].mean(axis=1)
@@ -166,10 +190,11 @@ print(f"Speeders < 60s  (finished): {(fd < 60).sum()}")
 print(f"Very long > 1h  (finished): {(fd > 3600).sum()}  (Qualtrics keeps tab open -> inflated)")
 print(f"Median minutes  (finished): {fd.median()/60:.1f} min")
 
-# straightlining on the 8-item loyalty battery (zero variance across items)
+# straightlining on the loyalty battery (zero variance across items)
 loy = df[LOY_ITEMS]
-straight = (loy.notna().sum(axis=1) >= 8) & (loy.std(axis=1, ddof=0) == 0)
-print(f"\nStraight-lining on 8-item loyalty battery (all identical): {int(straight.sum())} respondents")
+n_loy_items = len(LOY_ITEMS)
+straight = (loy.notna().sum(axis=1) >= n_loy_items) & (loy.std(axis=1, ddof=0) == 0)
+print(f"\nStraight-lining on {n_loy_items}-item loyalty battery (all identical): {int(straight.sum())} respondents")
 
 # ===================================================== 3. CONDITION ASSIGNMENT
 h("3. EXPERIMENTAL CONDITION ASSIGNMENT (between-subjects)")
@@ -201,8 +226,9 @@ h("5. SCALE RELIABILITY (Cronbach's alpha, analytic sample)")
 a_sat, n_sat = cronbach_alpha(ana[SAT_ITEMS])
 a_loy, n_loy = cronbach_alpha(ana[LOY_ITEMS])
 print(f"  Satisfaction    (5 items) : alpha = {a_sat:.3f}   (n={n_sat})")
-print(f"  Loyalty / WOM   (8 items) : alpha = {a_loy:.3f}   (n={n_loy})")
-print("  NOTE: loyalty slots 6 & 8 share identical wording in block A (qsf) -> check item bank.")
+print(f"  Loyalty / WOM   (7 items) : alpha = {a_loy:.3f}   (n={n_loy})")
+print("  NOTE: loyalty rebuilt as 7 content-aligned items: block-A duplicate")
+print("        (Q30_8 = Q30_6) removed; online-WOM item dropped (absent in block A).")
 
 print("\nScale score descriptives (1..7; situation is 1=positive..6=negative):")
 desc = ana[["situation"] + DV_ROBUST].describe().T
