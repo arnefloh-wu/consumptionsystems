@@ -221,7 +221,8 @@ Potential concern:
 """)
 
 # ===================================================================== FIGURE
-COLORS = {"A_Spos":"#2c7fb8","B_Sneg":"#d95f0e","C_Spos-Hneg":"#7fcdbb","D_Sneg-Hpos":"#fec44f"}
+# Greyscale only: lighter = more positive condition, darker = more negative.
+COLORS = {"A_Spos":"#f0f0f0","D_Sneg-Hpos":"#cccccc","C_Spos-Hneg":"#969696","B_Sneg":"#636363"}
 short  = {"A_Spos":"A  Spos","B_Sneg":"B  Sneg","C_Spos-Hneg":"C  Spos-Hneg","D_Sneg-Hpos":"D  Sneg-Hpos"}
 
 fig, ax = plt.subplots(figsize=(9, 5.5))
@@ -229,15 +230,16 @@ fig, ax = plt.subplots(figsize=(9, 5.5))
 for i, c in enumerate(CONDS):
     g = grps[c]
     ci = 1.96 * g.std(ddof=1) / np.sqrt(len(g))
-    # jittered individual points
+    # jittered individual points (white-edged black dots stay visible on any grey)
     jit = np.random.default_rng(42).uniform(-0.15, 0.15, len(g))
-    ax.scatter(i + jit, g, alpha=0.25, s=18, color=COLORS[c], zorder=2)
+    ax.scatter(i + jit, g, alpha=0.45, s=18, color="black",
+               edgecolors="white", linewidths=0.3, zorder=2)
     # mean + CI bar
-    ax.bar(i, g.mean(), color=COLORS[c], alpha=0.75, zorder=3, width=0.5)
+    ax.bar(i, g.mean(), color=COLORS[c], edgecolor="black", lw=1.0, zorder=3, width=0.5)
     ax.errorbar(i, g.mean(), yerr=ci, fmt="none", color="black", capsize=5, lw=1.5, zorder=4)
     ax.text(i, -0.35, f"M={g.mean():.2f}\nn={len(g)}", ha="center", fontsize=8.5)
 
-ax.axhline(SCALE_MID, ls="--", color="grey", lw=0.9, label="scale midpoint (3.5)")
+ax.axhline(SCALE_MID, ls="--", color="black", lw=0.9, label="scale midpoint (3.5)")
 ax.set_xticks(range(4))
 ax.set_xticklabels([short[c] for c in CONDS], fontsize=9)
 ax.set_ylabel("Situation appraisal (1=positive … 6=negative)", fontsize=9)
